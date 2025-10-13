@@ -5,7 +5,7 @@ Red5 Node Backend SDK allows you to generate conference tokens for different use
 ## Installation
 
 ```bash
-npm install red5-node-backend-sdk
+npm install red5-bcs-node
 ```
 
 ## Features
@@ -15,7 +15,7 @@ npm install red5-node-backend-sdk
 ## Quick Start
 
 ```javascript
-import Red5Client from 'red5-node-backend-sdk';
+import Red5Client from 'red5-bcs-node';
 
 // Get masterKey and masterSecret from Red5 Cloud panel
 // For production, get these from environment variables!
@@ -102,7 +102,7 @@ RED5_MASTER_SECRET=your_master_secret_here
 2. Use them in your backend:
 
 ```javascript
-import Red5Client from 'red5-node-backend-sdk';
+import Red5Client from 'red5-bcs-node';
 
 const client = new Red5Client(
   process.env.RED5_MASTER_KEY,
