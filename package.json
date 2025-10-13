@@ -1,0 +1,30 @@
+{
+  "name": "red5-bcs-node",
+  "version": "1.0.0",
+  "description": "Node SDK for Red5",
+  "main": "index.js",
+  "exports": {
+  ".": "./index.js"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["red5", "conference", "token", "webrtc", "video"],
+  "author": "Yunus <yunus@red5.net>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/red5pro/red5-bcs-node.git"
+  },
+  "bugs": {
+    "url": "https://github.com/red5pro/red5-bcs-node/issues"
+  },
+  "homepage": "https://github.com/red5pro/red5-bcs-node#readme",
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "dependencies": {
+    "jsonwebtoken": "^9.0.2",
+    "pubnub": "^10.1.0"
+  }
+}
