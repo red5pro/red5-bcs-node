@@ -113,7 +113,7 @@ const subscriberToken = await client.getConferenceToken(
 
 ### `getChatToken(userId, channelId, read, write, ttlMinutes)`
 
-Generates a secure PubNub chat token for authenticating users to send and receive messages in specific channels.
+Generates a secure chat token for authenticating users to send and receive messages in specific channels.
 
 **Parameters:**
 
@@ -125,7 +125,7 @@ Generates a secure PubNub chat token for authenticating users to send and receiv
 
 **Returns:**
 
-Promise that resolves to a PubNub token string that grants access to:
+Promise that resolves to a token string that grants access to:
 - The specified channel with read/write permissions
 
 **Example:**
