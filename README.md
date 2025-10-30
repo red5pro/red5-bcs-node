@@ -1,6 +1,6 @@
 # Red5 Node Backend SDK
 
-Red5 Node Backend SDK allows you to generate conference tokens for different user roles in your Red5 video conferencing application.
+Red5 Node Backend SDK allows you to generate conference tokens for different user roles in your Red5 video conferencing application and generate chat tokens for chat authentication.
 
 ## Installation
 
@@ -11,6 +11,7 @@ npm install red5-bcs-node
 ## Features
 
 - 🔐 Secure conference token generation with multiple user role support
+- 🔐 Secure chat token generation for sending/receiving messages from channels
 
 ## Quick Start
 
@@ -24,14 +25,37 @@ const masterSecret = 'YUN1UzSlMzRkZmI0Yzc1YjhhNWU4MTUzNWM4N2U2N2I2ZjE4OWRiODA1Nj
 
 const client = new Red5Client(masterKey, masterSecret);
 
-async function getToken() {
+async function getConferenceToken() {
   const conferenceToken = await client.getConferenceToken("someUser", "someRoomId", "admin");
   return conferenceToken;
 }
 
-const token = getToken();
+const conferenceToken = getConferenceToken();
 // Use this token in red5 frontend conference sdk.
 console.log(token);
+
+
+async function getChatToken(){
+var userId = "someUserId"
+var channelId = "someChannelId"
+var allowRead = true;
+var allowWrite = true;
+var ttlMinutes = 60
+
+const chatToken = await client.getChatToken(userId, channelId, allowRead, allowWrite, ttlMinutes)
+return chatToken;
+}
+
+
+async function main(){
+const chatToken =  await getChatToken()
+console.log(chatToken)
+
+}
+main()
+
+
+
 ```
 
 ## API Reference
@@ -57,6 +81,7 @@ Promise that resolves to a JWT token string containing:
 - Room access permissions
 - Embedded PubNub token for real-time messaging
 - Token expiration time
+
 
 **Example:**
 
@@ -84,6 +109,55 @@ const subscriberToken = await client.getConferenceToken(
   30
 );
 ```
+
+
+### `getChatToken(userId, channelId, read, write, ttlMinutes)`
+
+Generates a secure PubNub chat token for authenticating users to send and receive messages in specific channels.
+
+**Parameters:**
+
+- `userId` (string, required) - Unique identifier for the user requesting chat access
+- `channelId` (string, required) - Chat channel identifier the user wants to join
+- `read` (boolean, required) - Grant read permission (receive messages)
+- `write` (boolean, required) - Grant write permission (send messages)
+- `ttlMinutes` (number, optional) - Token validity duration in minutes (default: `60`)
+
+**Returns:**
+
+Promise that resolves to a PubNub token string that grants access to:
+- The specified channel with read/write permissions
+
+**Example:**
+```javascript
+// Full access token (read and write) with 1-hour expiration
+const fullAccessToken = await client.getChatToken(
+  "user123",
+  "chat-room-1",
+  true,
+  true,
+  60
+);
+
+// Read-only token (viewer can only receive messages)
+const readOnlyToken = await client.getChatToken(
+  "viewer456",
+  "chat-room-1",
+  true,
+  false,
+  30
+);
+
+// Write-only token (user can only send messages)
+const writeOnlyToken = await client.getChatToken(
+  "sender789",
+  "chat-room-1",
+  false,
+  true,
+  120
+);
+```
+
 
 ## Using the Token
 
@@ -126,6 +200,21 @@ app.post('/api/get-conference-token', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+app.post('/api/get-chat-token', async (req, res) => {
+  const { userId, channelId, read, write, ttlMinutes } = req.body;
+  
+  // Add your authentication/authorization logic here
+  
+  try {
+    const token = await client.getChatToken(userId, channelId, read, write, ttlMinutes);
+    res.json({ token });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+
 ```
 
 ## Requirements

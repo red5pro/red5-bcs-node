@@ -137,6 +137,35 @@ class Red5Client {
     throw new Error('Failed to generate PubNub token: ' + error.message);
   }
 }
+
+  /**
+   * Generate chat token for the given channel and user
+   * @private
+   */
+  async getChatToken(userId, channelId, read, write, ttlMinutes = 60,) {
+  try {
+    const token = await this.pubnub.grantToken({
+      ttl: ttlMinutes,
+      authorized_uuid: userId,
+      resources: {
+        channels: {
+          [channelId]: {
+            read: read,
+            write: write
+          },
+           [`${channelId}-pnpres`]: {
+              read: read,
+              write: write
+            }
+        }
+      }
+    });
+    
+    return token;
+  } catch (error) {
+    throw new Error('Failed to generate chat token: ' + error.message);
+  }
+}
   
   /**
    * Get conference token 
@@ -257,5 +286,4 @@ class Red5Client {
   }
 }
 
-// Export the class
 export default Red5Client;
