@@ -1,6 +1,6 @@
 # Red5 Node Backend SDK
 
-Red5 Node Backend SDK allows you to generate conference tokens for different user roles in your Red5 video conferencing application and generate chat tokens for chat authentication.
+Red5 Node Backend SDK allows you to generate conference tokens for different user roles in your Red5 video conferencing application, generate chat tokens for chat authentication and provides easy conference room management methods.
 
 ## Installation
 
@@ -299,22 +299,6 @@ Get paginated list of all conference rooms filtered by state.
 const activeRooms = await client.getRoomList('active', 20, 0);
 console.log(activeRooms);
 // { roomCount: 5, rooms: [...] }
-```
-
-#### `isUserJoined(roomId, userId)`
-
-Check if a specific user is currently joined to a room.
-
-**Parameters:**
-- `roomId` (string, required) - Room identifier
-- `userId` (string, required) - User identifier
-
-**Returns:** Promise resolving to join status with room state if joined
-
-**Example:**
-```javascript
-const joinStatus = await client.isUserJoined('room123', 'user456');
-console.log(joinStatus);
 ```
 
 ### User Moderation
