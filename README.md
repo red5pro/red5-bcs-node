@@ -12,6 +12,9 @@ npm install red5-bcs-node
 
 - 🔐 Secure conference token generation with multiple user role support
 - 🔐 Secure chat token generation for sending/receiving messages from channels
+- 🎥 Conference room management API methods (user management, recording, transcription)
+- 📊 Room and user status monitoring
+- 🎬 Recording and transcription control
 
 ## Quick Start
 
@@ -215,6 +218,336 @@ app.post('/api/get-chat-token', async (req, res) => {
 });
 
 
+```
+
+## Conference API Methods
+
+The SDK provides methods to manage conference rooms, users, recording, and transcription. All methods automatically generate admin tokens and make authenticated requests to the Stream Manager Conference API.
+
+### Room & User Management
+
+#### `getUserStatus(roomId, userId)`
+
+Get detailed status information for a specific user in a room.
+
+**Parameters:**
+- `roomId` (string, required) - Room identifier
+- `userId` (string, required) - User identifier
+
+**Returns:** Promise resolving to user status object containing:
+- `uid` - User ID
+- `online` - Online status (boolean)
+- `role` - User role (admin/publisher/subscriber)
+- `audioEnabled` - Audio status (boolean)
+- `videoEnabled` - Video status (boolean)
+- `joinTime` - Timestamp when user joined
+
+**Example:**
+```javascript
+const userStatus = await client.getUserStatus('room123', 'user456');
+console.log(userStatus);
+// { uid: 'user456', online: true, role: 'publisher', audioEnabled: true, videoEnabled: true, joinTime: 1234567890 }
+```
+
+#### `getUserList(roomId, limit, offset)`
+
+Get paginated list of all users in a room.
+
+**Parameters:**
+- `roomId` (string, required) - Room identifier
+- `limit` (number, optional) - Maximum users to return (default: 100)
+- `offset` (number, optional) - Pagination offset (default: 0)
+
+**Returns:** Promise resolving to object with `userCount` and `users` array
+
+**Example:**
+```javascript
+const userList = await client.getUserList('room123', 50, 0);
+console.log(userList);
+// { userCount: 3, users: [...] }
+```
+
+#### `getHostList(roomId)`
+
+Get list of all hosts (publishers) in a room.
+
+**Parameters:**
+- `roomId` (string, required) - Room identifier
+
+**Returns:** Promise resolving to object with `hostCount` and `hosts` array
+
+**Example:**
+```javascript
+const hosts = await client.getHostList('room123');
+console.log(hosts);
+// { hostCount: 2, hosts: [...] }
+```
+
+#### `getRoomList(state, limit, offset)`
+
+Get paginated list of all conference rooms filtered by state.
+
+**Parameters:**
+- `state` (string, optional) - Filter by room state: 'active', 'inactive', or 'all' (default: 'active')
+- `limit` (number, optional) - Maximum rooms to return (default: 50)
+- `offset` (number, optional) - Pagination offset (default: 0)
+
+**Returns:** Promise resolving to object with `roomCount` and `rooms` array
+
+**Example:**
+```javascript
+const activeRooms = await client.getRoomList('active', 20, 0);
+console.log(activeRooms);
+// { roomCount: 5, rooms: [...] }
+```
+
+#### `isUserJoined(roomId, userId)`
+
+Check if a specific user is currently joined to a room.
+
+**Parameters:**
+- `roomId` (string, required) - Room identifier
+- `userId` (string, required) - User identifier
+
+**Returns:** Promise resolving to join status with room state if joined
+
+**Example:**
+```javascript
+const joinStatus = await client.isUserJoined('room123', 'user456');
+console.log(joinStatus);
+```
+
+### User Moderation
+
+#### `blockUser(roomId, userId, blockDurationSeconds)`
+
+Block a user from accessing a room for a specified duration.
+
+**Parameters:**
+- `roomId` (string, required) - Room identifier
+- `userId` (string, required) - User identifier to block
+- `blockDurationSeconds` (number, optional) - Block duration in seconds (default: 1)
+
+**Returns:** Promise resolving to block confirmation message
+
+**Example:**
+```javascript
+// Block user for 1 hour
+const result = await client.blockUser('room123', 'badUser', 3600);
+console.log(result.message);
+// "User with ID badUser in room room123 blocked for 3600 seconds"
+```
+
+#### `unblockUser(roomId, userId)`
+
+Unblock a previously blocked user.
+
+**Parameters:**
+- `roomId` (string, required) - Room identifier
+- `userId` (string, required) - User identifier to unblock
+
+**Returns:** Promise resolving to unblock confirmation message
+
+**Example:**
+```javascript
+const result = await client.unblockUser('room123', 'badUser');
+console.log(result.message);
+// "User with ID badUser in room room123 unblocked"
+```
+
+### Recording Control
+
+#### `startRecording(roomId)`
+
+Start recording for all active streams in a room. The recording combines all participant streams into a single output.
+
+**Parameters:**
+- `roomId` (string, required) - Room identifier
+
+**Returns:** Promise resolving to object containing:
+- `message` - Success message
+- `recordingStreamName` - Name of the recording stream
+- `participantCount` - Number of participants being recorded
+- `originIp` - Origin server IP handling the recording
+
+**Example:**
+```javascript
+const recording = await client.startRecording('room123');
+console.log(recording);
+// { message: "Recording stream created...", recordingStreamName: "room123_1234567890", participantCount: 5, originIp: "10.0.0.1" }
+```
+
+#### `stopRecording(roomId)`
+
+Stop the active recording for a room.
+
+**Parameters:**
+- `roomId` (string, required) - Room identifier
+
+**Returns:** Promise resolving to object containing:
+- `message` - Success message
+- `recordingStreamName` - Name of the stopped recording stream
+- `mixerStopped` - Boolean indicating if mixer was stopped successfully
+
+**Example:**
+```javascript
+const result = await client.stopRecording('room123');
+console.log(result);
+// { message: "Recording stopped successfully...", recordingStreamName: "room123_1234567890", mixerStopped: true }
+```
+
+### Transcription Control
+
+#### `startTranscription(roomId, userId)`
+
+Start real-time transcription for all participant audio streams, with transcriptions delivered to a specific user.
+
+**Parameters:**
+- `roomId` (string, required) - Room identifier
+- `userId` (string, required) - User ID who will receive transcriptions
+
+**Returns:** Promise resolving to object containing:
+- `message` - Success message
+- `successfulStreams` - Array of stream names with transcription started
+- `totalParticipants` - Total number of participants
+
+**Example:**
+```javascript
+const result = await client.startTranscription('room123', 'user456');
+console.log(result);
+// { message: "Transcription started successfully...", successfulStreams: [...], totalParticipants: 5 }
+```
+
+#### `stopTranscription(roomId, userId)`
+
+Stop transcription delivery for a specific user.
+
+**Parameters:**
+- `roomId` (string, required) - Room identifier
+- `userId` (string, required) - User ID to stop receiving transcriptions
+
+**Returns:** Promise resolving to object containing:
+- `message` - Success message
+- `successfulStreams` - Array of stream names with transcription updated
+- `totalParticipants` - Total number of participants
+
+**Example:**
+```javascript
+const result = await client.stopTranscription('room123', 'user456');
+console.log(result);
+// { message: "Transcription stopped successfully...", successfulStreams: [...], totalParticipants: 5 }
+```
+
+## Complete Usage Example
+
+```javascript
+import Red5Client from 'red5-bcs-node';
+
+const client = new Red5Client(
+  process.env.RED5_MASTER_KEY,
+  process.env.RED5_MASTER_SECRET
+);
+
+async function manageConference() {
+  try {
+    // Get list of active rooms
+    const rooms = await client.getRoomList('active');
+    console.log(`Active rooms: ${rooms.roomCount}`);
+
+    // Get users in a specific room
+    const users = await client.getUserList('room123');
+    console.log(`Users in room: ${users.userCount}`);
+
+    // Start recording
+    const recording = await client.startRecording('room123');
+    console.log(`Recording started: ${recording.recordingStreamName}`);
+
+    // Start transcription for a user
+    await client.startTranscription('room123', 'user456');
+
+    // Block a disruptive user for 30 minutes
+    await client.blockUser('room123', 'spammer', 1800);
+
+    // Later, stop recording
+    await client.stopRecording('room123');
+
+  } catch (error) {
+    console.error('Error:', error.message);
+  }
+}
+
+manageConference();
+```
+
+## Express.js API Endpoint Examples
+
+```javascript
+import express from 'express';
+import Red5Client from 'red5-bcs-node';
+
+const app = express();
+const client = new Red5Client(
+  process.env.RED5_MASTER_KEY,
+  process.env.RED5_MASTER_SECRET
+);
+
+// Get conference token for user
+app.post('/api/conference/token', async (req, res) => {
+  const { userId, roomId, role } = req.body;
+  try {
+    const token = await client.getConferenceToken(userId, roomId, role);
+    res.json({ token });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Start recording
+app.post('/api/conference/recording/start', async (req, res) => {
+  const { roomId } = req.body;
+  try {
+    const result = await client.startRecording(roomId);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Stop recording
+app.post('/api/conference/recording/stop', async (req, res) => {
+  const { roomId } = req.body;
+  try {
+    const result = await client.stopRecording(roomId);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get room users
+app.get('/api/conference/room/:roomId/users', async (req, res) => {
+  const { roomId } = req.params;
+  try {
+    const users = await client.getUserList(roomId);
+    res.json(users);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Block user
+app.post('/api/conference/room/:roomId/user/:userId/block', async (req, res) => {
+  const { roomId, userId } = req.params;
+  const { duration } = req.body; // duration in seconds
+  try {
+    const result = await client.blockUser(roomId, userId, duration);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.listen(3000, () => console.log('Server running on port 3000'));
 ```
 
 ## Requirements

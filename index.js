@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const PubNub = require('pubnub');
+const axios = require('axios');
 
 class Red5Client {
   constructor(masterKey, masterSecret) {
@@ -29,7 +30,7 @@ class Red5Client {
       return false;
     }
 
-    const required = ['conferenceSecret', 'pubnubSecret', 'pubKey', 'subKey'];
+    const required = ['conferenceSecret', 'pubnubSecret', 'pubKey', 'subKey', 'streamManagerHost'];
     const missing = required.filter(key => !credentials[key]);
 
     if (missing.length > 0) {
@@ -53,13 +54,14 @@ class Red5Client {
       const decryptedBundle = this._decryptCredentials(encryptedCredentials, this.masterKey);
       
       // Parse the credentials
-      const [conferenceSecret, pubnubSecret, pubKey, subKey] = decryptedBundle.split('|');
-      
+      const [conferenceSecret, pubnubSecret, pubKey, subKey, streamManagerHost] = decryptedBundle.split('|');
+
       return {
         conferenceSecret,
         pubnubSecret,
         pubKey,
-        subKey
+        subKey,
+        streamManagerHost
       };
     } catch (error) {
       throw new Error('Failed to extract credentials from master key/secret: ' + error.message);
@@ -219,7 +221,8 @@ class Red5Client {
       conferenceSecret: this.credentials.conferenceSecret,
       pubnubSecret: this.credentials.pubnubSecret,
       pubKey: this.credentials.pubKey,
-      subKey: this.credentials.subKey
+      subKey: this.credentials.subKey,
+      streamManagerHost: this.credentials.streamManagerHost
     };
   }
   
@@ -269,7 +272,7 @@ class Red5Client {
     try {
       const parts = conferenceToken.split('.');
       if (parts.length !== 3) return null;
-      
+
       const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString());
       return {
         userId: payload.uid,
@@ -283,6 +286,227 @@ class Red5Client {
     } catch (error) {
       return null;
     }
+  }
+
+  // ============ Conference API Methods ============
+
+  /**
+   * Generate admin token for Conference API calls (simplified, no PubNub fields needed)
+   * @private
+   * @param {string} roomId - Room ID for the admin token
+   * @param {number} expirationMinutes - Token expiration time in minutes (default: 60)
+   * @returns {string} Admin token
+   */
+  _generateAdminToken(roomId, expirationMinutes = 60) {
+    try {
+      const payload = {
+        uid: 'admin',
+        roomId: roomId,
+        role: 'admin',
+        iat: Math.floor(Date.now() / 1000),
+        exp: Math.floor(Date.now() / 1000) + (expirationMinutes * 60)
+      };
+
+      const token = jwt.sign(payload, this.credentials.conferenceSecret, { algorithm: 'HS256' });
+      return token;
+    } catch (error) {
+      throw new Error('Failed to generate admin token: ' + error.message);
+    }
+  }
+
+  /**
+   * Make authenticated request to Conference API
+   * @private
+   */
+  async _makeConferenceRequest(method, endpoint, roomId, data = null, params = null) {
+    const adminToken = this._generateAdminToken(roomId);
+    const url = `https://${this.credentials.streamManagerHost}/as/v1/conference${endpoint}`;
+
+    try {
+      const config = {
+        method,
+        url,
+        headers: {
+          'Authorization': `Bearer ${adminToken}`,
+          'Content-Type': 'application/json'
+        }
+      };
+
+      if (params) {
+        config.params = params;
+      }
+
+      if (data) {
+        config.data = data;
+      }
+
+      const response = await axios(config);
+      return response.data;
+    } catch (error) {
+      if (error.response) {
+        throw new Error(`Conference API error: ${error.response.data.message || error.response.statusText}`);
+      }
+      throw new Error('Failed to make conference request: ' + error.message);
+    }
+  }
+
+  /**
+   * Get user status in a room
+   * @param {string} roomId - Room ID
+   * @param {string} userId - User ID
+   * @returns {Promise<Object>} User status information
+   */
+  async getUserStatus(roomId, userId) {
+    if (!roomId || !userId) {
+      throw new Error('roomId and userId are required');
+    }
+    return await this._makeConferenceRequest('GET', `/room/${roomId}/user/${userId}`, roomId);
+  }
+
+  /**
+   * Block a user in a room
+   * @param {string} roomId - Room ID
+   * @param {string} userId - User ID to block
+   * @param {number} blockDurationSeconds - Block duration in seconds (default: 1)
+   * @returns {Promise<Object>} Block confirmation
+   */
+  async blockUser(roomId, userId, blockDurationSeconds = 1) {
+    if (!roomId || !userId) {
+      throw new Error('roomId and userId are required');
+    }
+    return await this._makeConferenceRequest(
+      'POST',
+      `/room/${roomId}/user/${userId}/block`,
+      roomId,
+      null,
+      { blockDuration: blockDurationSeconds }
+    );
+  }
+
+  /**
+   * Unblock a user in a room
+   * @param {string} roomId - Room ID
+   * @param {string} userId - User ID to unblock
+   * @returns {Promise<Object>} Unblock confirmation
+   */
+  async unblockUser(roomId, userId) {
+    if (!roomId || !userId) {
+      throw new Error('roomId and userId are required');
+    }
+    return await this._makeConferenceRequest('POST', `/room/${roomId}/user/${userId}/unblock`, roomId);
+  }
+
+  /**
+   * Get list of users in a room
+   * @param {string} roomId - Room ID
+   * @param {number} limit - Maximum number of users to return (default: 100)
+   * @param {number} offset - Offset for pagination (default: 0)
+   * @returns {Promise<Object>} User list with count
+   */
+  async getUserList(roomId, limit = 100, offset = 0) {
+    if (!roomId) {
+      throw new Error('roomId is required');
+    }
+    return await this._makeConferenceRequest(
+      'GET',
+      `/room/${roomId}/users`,
+      roomId,
+      null,
+      { limit, offset }
+    );
+  }
+
+  /**
+   * Get list of hosts (publishers) in a room
+   * @param {string} roomId - Room ID
+   * @returns {Promise<Object>} Host list with count
+   */
+  async getHostList(roomId) {
+    if (!roomId) {
+      throw new Error('roomId is required');
+    }
+    return await this._makeConferenceRequest('GET', `/room/${roomId}/hosts`, roomId);
+  }
+
+  /**
+   * Get list of all rooms based on state
+   * @param {string} state - Room state filter ('active', 'inactive', or 'all') (default: 'active')
+   * @param {number} limit - Maximum number of rooms to return (default: 50)
+   * @param {number} offset - Offset for pagination (default: 0)
+   * @returns {Promise<Object>} Room list with count
+   */
+  async getRoomList(state = 'active', limit = 50, offset = 0) {
+    // For getRoomList, we need admin token but roomId doesn't matter, using 'admin' as placeholder
+    return await this._makeConferenceRequest(
+      'GET',
+      '/rooms',
+      'admin',
+      null,
+      { limit, offset, state }
+    );
+  }
+
+  /**
+   * Start recording for a room
+   * @param {string} roomId - Room ID
+   * @returns {Promise<Object>} Recording start confirmation with recording stream name
+   */
+  async startRecording(roomId) {
+    if (!roomId) {
+      throw new Error('roomId is required');
+    }
+    return await this._makeConferenceRequest('POST', `/room/${roomId}/startRecording`, roomId);
+  }
+
+  /**
+   * Stop recording for a room
+   * @param {string} roomId - Room ID
+   * @returns {Promise<Object>} Recording stop confirmation
+   */
+  async stopRecording(roomId) {
+    if (!roomId) {
+      throw new Error('roomId is required');
+    }
+    return await this._makeConferenceRequest('POST', `/room/${roomId}/stopRecording`, roomId);
+  }
+
+  /**
+   * Check if a user is joined to a room
+   * @param {string} roomId - Room ID
+   * @param {string} userId - User ID
+   * @returns {Promise<Object>} Join status information
+   */
+  async isUserJoined(roomId, userId) {
+    if (!roomId || !userId) {
+      throw new Error('roomId and userId are required');
+    }
+    return await this._makeConferenceRequest('GET', `/room/${roomId}/user/${userId}/isJoined`, roomId);
+  }
+
+  /**
+   * Start transcription for a user in a room
+   * @param {string} roomId - Room ID
+   * @param {string} userId - User ID who will receive transcriptions
+   * @returns {Promise<Object>} Transcription start confirmation
+   */
+  async startTranscription(roomId, userId) {
+    if (!roomId || !userId) {
+      throw new Error('roomId and userId are required');
+    }
+    return await this._makeConferenceRequest('POST', `/room/${roomId}/user/${userId}/start-transcription`, roomId);
+  }
+
+  /**
+   * Stop transcription for a user in a room
+   * @param {string} roomId - Room ID
+   * @param {string} userId - User ID to stop receiving transcriptions
+   * @returns {Promise<Object>} Transcription stop confirmation
+   */
+  async stopTranscription(roomId, userId) {
+    if (!roomId || !userId) {
+      throw new Error('roomId and userId are required');
+    }
+    return await this._makeConferenceRequest('POST', `/room/${roomId}/user/${userId}/stop-transcription`, roomId);
   }
 }
 
