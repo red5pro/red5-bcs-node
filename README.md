@@ -301,22 +301,6 @@ console.log(activeRooms);
 // { roomCount: 5, rooms: [...] }
 ```
 
-#### `isUserJoined(roomId, userId)`
-
-Check if a specific user is currently joined to a room.
-
-**Parameters:**
-- `roomId` (string, required) - Room identifier
-- `userId` (string, required) - User identifier
-
-**Returns:** Promise resolving to join status with room state if joined
-
-**Example:**
-```javascript
-const joinStatus = await client.isUserJoined('room123', 'user456');
-console.log(joinStatus);
-```
-
 ### User Moderation
 
 #### `blockUser(roomId, userId, blockDurationSeconds)`
