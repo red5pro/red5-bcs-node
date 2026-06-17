@@ -1,6 +1,6 @@
 # Red5 Node Backend SDK
 
-Red5 Node Backend SDK allows you to generate conference tokens for different user roles in your Red5 video conferencing application, generate chat tokens for chat authentication and provides easy conference room management methods.
+[Red5 Node Backend SDK](https://www.red5.net/docs/red5-cloud/development/sdks/backend-sdk/node/) allows you to generate conference tokens for different user roles in your Red5 video conferencing application, generate chat tokens for chat authentication and provides easy conference room management methods.
 
 ## Installation
 
